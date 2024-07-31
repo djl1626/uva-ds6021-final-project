@@ -1,0 +1,35 @@
+---
+title: "BasicMultipleRegression"
+author: "Ben Pelczynski"
+date: "2024-07-24"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(ggcorrplot)
+stars = read.csv("Data/Stars_clean_a.csv")
+```
+
+```{r}
+star_wrap <- gather(stars, key="predictor", value = "value",Temperature,R,L)
+ggplot(star_wrap, aes(x=value, y=A_M, color=predictor)) + 
+  geom_point() + facet_wrap(~predictor, scales="free_x")
+```
+
+```{r}
+cor_mat <- cor(stars[0:4])
+ggcorrplot(cor_mat, lab=TRUE, type="lower")
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
