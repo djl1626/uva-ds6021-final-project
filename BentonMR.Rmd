@@ -1,0 +1,95 @@
+---
+title: "MultipleRegression"
+author: "Ben Pelczynski"
+date: "2024-07-24"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(ggcorrplot)
+library(MASS)
+library(caret)
+library(car)
+library(broom)
+library(glmnet)
+stars = read.csv("Data/Stars_clean_r.csv")
+```
+
+```{r}
+star_wrap <- gather(stars, key="predictor", value = "value",Temperature,R,L)
+ggplot(star_wrap, aes(x=value, y=A_M, color=predictor)) + 
+  geom_point() + facet_wrap(~predictor, scales="free_x")
+```
+
+```{r}
+cor_mat <- cor(stars[0:4])
+ggcorrplot(cor_mat, lab=TRUE, type="lower")
+```
+
+```{r}
+inimodel <- lm(Temperature~., data=stars[0:5])
+summary(inimodel)
+```
+
+```{r}
+stars2 <- mutate(stars, Temperature = log(Temperature), L = log(L), R = log(R))
+inimodel2 <- lm(Temperature~., data=stars2[0:5])
+summary(inimodel2)
+```
+
+```{r}
+aic <- stepAIC(inimodel, direction = "both")
+vif(aic)
+aic2 <- stepAIC(inimodel2, direction = "both")
+vif(aic2)
+```
+
+From these summaries I can conclude that Temperature, L, and R should be scaled with log for most accurate results.
+```{r}
+X<- model.matrix(Temperature~0+.,data=stars2[0:5])
+y <- stars2[0:5]$Temperature
+rmodel <- glmnet(x=X, y=y, alpha = 0)
+kcvrmodel <- cv.glmnet(x=X, y=y, alpha = 0, nfolds=10)
+kcvrmodel$lambda.1se
+plot(rmodel, label=T,xvar='lambda')+abline(v=log(kcvrmodel$lambda.1se))
+predict(rmodel, type="coefficient", s=kcvrmodel$lambda.1se, newx=X[1:10,])
+
+```
+
+```{r}
+X<- model.matrix(Temperature~0+.,data=stars2[0:5])
+y <- stars2[0:5]$Temperature
+rmodel <- glmnet(x=X, y=y, alpha = 1)
+kcvrmodel <- cv.glmnet(x=X, y=y, alpha = 1, nfolds=10)
+kcvrmodel$lambda.1se
+plot(rmodel, label=T,xvar='lambda')+abline(v=log(kcvrmodel$lambda.1se))
+predict(rmodel, type="coefficient", s=kcvrmodel$lambda.1se, newx=X[1:10,])
+```
+
+```{r}
+goodmodel <- lm(Temperature~L+Color, data=stars2)
+summary(goodmodel)
+```
+
+```{r}
+ggplot(stars2, aes(x=L, y = Temperature, color=Color))+geom_jitter()+
+  geom_smooth(method="lm", model.extract(stars), se=FALSE)
+```
+
+```{r}
+goodmodel2 <- lm(Temperature~L*Color, data=stars2)
+summary(goodmodel2)
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
