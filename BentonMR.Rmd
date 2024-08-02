@@ -83,11 +83,13 @@ summary(goodmodel2)
 ```
 
 ```{r}
+star_pred <- mutate(stars2, predictions=fitted(goodmodel), resid=residuals(goodmodel))
 
+ggplot(star_pred, aes(x=predictions, y=resid)) + geom_point() + geom_hline(yintercept = 0, color="red")
 ```
 
 ```{r}
-
+ggplot(star_pred, aes(sample=resid))+stat_qq()+stat_qq_line(color="red")
 ```
 
 ```{r}
