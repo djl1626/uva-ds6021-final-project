@@ -135,4 +135,8 @@ ggplot(mapping=aes(x=predict(model_lambda_extreme, stars_dummies), y=resid(model
   geom_point()
 
 summary(model_lambda_extreme)
+
+# adj R^2: .9803
+# residual standard error: 1.282
+
 car::vif(model_lambda_extreme)
