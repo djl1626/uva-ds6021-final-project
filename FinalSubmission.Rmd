@@ -14,5 +14,57 @@ library(caret)
 library(car)
 library(broom)
 library(glmnet)
+
+stars <- read.csv("Data/Stars_clean_r.csv")
 ```
 
+## Data Exploration
+
+```{r numerical-distribution}
+knitr::kable(summary(stars %>% dplyr::select(Temperature, L, R, A_M)), format='html')
+```
+
+## Multiple Linear Regression
+
+```{r initial-model}
+inimodel <- lm(Temperature~., data=stars[0:5])
+summary(inimodel)
+```
+
+```{r initial-log-model}
+stars2 <- mutate(stars, Temperature = log(Temperature), L = log(L), R = log(R))
+inimodel2 <- lm(Temperature~., data=stars2[0:5])
+summary(inimodel2)
+```
+
+```{r lasso-model}
+X<- model.matrix(Temperature~0+.,data=stars2[0:5])
+y <- stars2[0:5]$Temperature
+rmodel <- glmnet(x=X, y=y, alpha = 1)
+kcvrmodel <- cv.glmnet(x=X, y=y, alpha = 1, nfolds=10)
+kcvrmodel$lambda.1se
+plot(rmodel, label=T,xvar='lambda')+abline(v=log(kcvrmodel$lambda.1se))
+predict(rmodel, type="coefficient", s=kcvrmodel$lambda.1se, newx=X[1:10,])
+```
+
+```{r good-model}
+goodmodel <- lm(Temperature~L+Color, data=stars2)
+summary(goodmodel)
+```
+
+```{r good-model-resid-plot}
+star_pred <- mutate(stars2, predictions=fitted(goodmodel), resid=residuals(goodmodel))
+
+ggplot(star_pred, aes(x=predictions, y=resid)) + geom_point() + geom_hline(yintercept = 0, color="red")
+```
+
+```{r good-model-qq-plot}
+ggplot(star_pred, aes(sample=resid)) + stat_qq() + stat_qq_line(color="red")
+```
+
+```{r jitter-plot}
+ggplot(stars2, aes(x=L, y = Temperature, color=Color))+geom_jitter()+
+  geom_smooth(method="lm", model.extract(stars2), se=FALSE)
+```
+
+## Logistic Regression
