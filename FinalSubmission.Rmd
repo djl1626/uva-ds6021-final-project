@@ -5,6 +5,34 @@ date: "8/5/2024"
 output: html_document
 ---
 
+```{python}
+import pandas as pd
+
+stars = pd.read_csv('Stars.csv')
+
+replace_map = {"Red": "Red_Orange",
+"Blue": "Blue",
+"Blue-white": "Blue-White",
+"Blue White": "Blue-White",
+"yellow-white": "Yellow_White",
+"White": "Yellow_White",
+"Blue white": "Blue-White",
+"white": "Yellow_White",
+"Yellowish White": "Yellow_White",
+"yellowish": "Yellow_White",
+"Whitish": "Yellow_White",
+"Orange": "Red_Orange",
+"White-Yellow": "Yellow_White",
+"Pale yellow orange": "Yellow_White",
+"Yellowish": "Yellow_White",
+"Orange-Red": "Red_Orange",
+"Blue-White": "Blue-White"}
+
+stars.Color = stars.Color.replace(replace_map)
+
+stars.to_csv('Stars_clean_r.csv', index = False)
+```
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
