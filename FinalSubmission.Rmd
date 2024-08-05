@@ -1,0 +1,18 @@
+---
+title: "DS6021 Final Project"
+author: "Daniel Luettgen"
+date: "8/5/2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggcorrplot)
+library(MASS)
+library(caret)
+library(car)
+library(broom)
+library(glmnet)
+```
+
