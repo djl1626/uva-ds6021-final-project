@@ -30,6 +30,17 @@ replace_map = {"Red": "Red_Orange",
 
 stars.Color = stars.Color.replace(replace_map)
 
+replace_map2 = {,
+   0: 'Red Dwarf'
+   1: 'Brown Dwarf',
+   2: 'White Dwarf',
+   3: 'Main Sequence',
+   4: 'Super Giants',
+   5" 'Hyper Giants'
+}
+
+stars.Type = stars.Type.replace(replace_map2)
+
 stars.to_csv('Stars_clean_r.csv', index = False)
 ```
 
