@@ -84,10 +84,10 @@ train_probs <- data.frame(bd_train_probs, rd_train_probs, wd_train_probs, ms_tra
 colnames(train_probs) <- c('Brown Dwarf', 'Red Dwarf', 'White Dwarf', 'Main Sequence', 'Hyper Giants', 'Super Giants')
 
 train_rowmax <- apply(train_probs, 1, max)
-train_log_odds <- rowmax / log(1-train_rowmax)
+train_log_odds <- train_rowmax / log(1-train_rowmax)
 train_rowmax_index <- apply(train_probs, 1, which.max)
 
-train_preds <- colnames(train_probs)[rowmax_index]
+train_preds <- colnames(train_probs)[train_rowmax_index]
 
 paste('Training Accuracy:', sum((as.integer(train_preds == train_data$Type)) / nrow(train_data)))
 
