@@ -3,7 +3,7 @@
 library(tidyverse)
 ```
 
-
+## Importing Data
 ```{r}
 stars <- read.csv("C:\\Users\\saint\\Downloads\\Stars_clean_r.csv")
 ```
@@ -19,7 +19,7 @@ names(stars) <- c("Temperature","Relative_Luminosity", "Relative_Radius", "Absol
                    "Spectral_Class","Type")
 ```
 
-
+## Looking at numerical variables vs. temperature (response)
 ```{r}
 #Facet wrap of individual variables
 stars2 <- gather(stars, key="predictor", value="value",
@@ -28,14 +28,17 @@ ggplot(stars2, aes(x=value, y=Temperature,color=predictor))+geom_point()+
   facet_wrap(~predictor,scales = "free_x")+scale_color_manual(values = c("Absolute_Magnitude" = "darkslateblue", "Relative_Luminosity" = "coral3", "Relative_Radius" = "cadetblue4"))+theme(legend.position = "none")
 ```
 
+Looking at first few graphs, it is hard to see a linear relationship between variables.
 
-
+# First Model (luminosity, radius, magnitude predicting temperature)
 ```{r}
 #Building model
 model1 <- lm(Temperature~Relative_Luminosity+Relative_Radius+Absolute_Magnitude, data = stars)
 summary(model1)
 ```
-Checking assumptions:
+The model has a very low R^2. Need to check assumptions now.
+
+### Checking assumptions:
 1. Residual plot
 ```{r}
 stars_predict <- mutate(stars, predictions=fitted(model1),
@@ -50,7 +53,9 @@ ggplot(stars_predict, aes(x=predictions, y=resid))+geom_point()+geom_hline(yinte
 ggplot(stars_predict, aes(sample=resid))+stat_qq()+stat_qq_line(color="red")
 ```
 
+The first model defintely is not useful, it doesn't have a high R^2 and it does not pass some of the assumptions needed. Next, we transformed the variables using log.
 
+# Transformations
 ```{r}
 #Log Transformations (except magnitude due to negatives)
 stars_t <- mutate(stars, Log_Luminosity = log(Relative_Luminosity), Log_Temperature = log(Temperature), Log_Radius = log(Relative_Radius), Magnitude = Absolute_Magnitude)
@@ -68,14 +73,16 @@ stars_t2 <- gather(stars_t, key="predictor", value="value",
 ggplot(stars_t2, aes(x=value, y=Log_Temperature,color=predictor))+geom_point()+
   facet_wrap(~predictor,scales = "free_x")
 ```
+These graphs look a lot better than the original. Now need to build a model and check assumptions.
 
 
+# New Model
 ```{r}
 model_t <- lm(Log_Temperature~Log_Luminosity+Log_Radius+Magnitude, data = stars_t)
 summary(model_t)
 ```
-
-Assumptions transformation model:
+Model improved in terms of adjusted R^2 along with have significant p-values. Now need to check assumptions of the model.
+### Assumptions transformation model:
 ```{r}
 predict_t <- mutate(stars_t, predictions = fitted(model_t), resid=residuals(model_t))
 ```
@@ -90,8 +97,10 @@ ggplot(predict_t, aes(x=predictions, y=resid))+geom_point()+geom_hline(yintercep
 #qqplot
 ggplot(predict_t, aes(sample=resid))+stat_qq()+stat_qq_line(color="red")
 ```
+These also look a little bit better but have some patterns such as the qqplot deviated from the line at the extremes and the residual plot having groupings and not being random.
 
-# checking for MC:
+
+### checking for MC:
 ```{r}
 stars_mc <- subset(stars_t, select = -c(Temperature, Relative_Luminosity, Relative_Radius, Absolute_Magnitude, Color,
                                          Spectral_Class,Type))
@@ -115,8 +124,10 @@ library(car)
 vif(model_t)
 ```
 
-# Taking out magnitude
+There is a lot of multi-colinearity between variables, need to remove a variable.
 
+
+# Taking out magnitude
 ```{r}
 stars_nom <- mutate(stars, Log_Luminosity = log(Relative_Luminosity), Log_Temperature = log(Temperature), Log_Radius = log(Relative_Radius))
 ```
@@ -133,19 +144,21 @@ ggplot(stars_tn, aes(x=value, y=Log_Temperature,color=predictor))+geom_point()+
   facet_wrap(~predictor,scales = "free_x") + scale_color_manual(values = c("Log_Luminosity" = "coral3", "Log_Radius" = "cadetblue4")) + theme(legend.position = "none")
 ```
 
-
+New model:
 ```{r}
 #New model with radius and luminosity predicting temperature (log)
 model_n <- lm(Log_Temperature~Log_Radius+Log_Luminosity, data = stars_nom)
 summary(model_n)
 ```
-
+After taking out magnitude, the model's adjusted R^2 is around .5244 which is better.
 
 ```{r}
 predict_nm <- mutate(stars_nom, predictions = fitted(model_n),
                      resid=residuals(model_n))
 ```
 
+
+## Assumptions of new model
 ```{r}
 #Residual plot of new model
 ggplot(predict_nm, aes(x=predictions, y = resid))+geom_point()+geom_hline(yintercept=0,color="red")
@@ -155,7 +168,9 @@ ggplot(predict_nm, aes(x=predictions, y = resid))+geom_point()+geom_hline(yinter
 #qqplot of new model
 ggplot(predict_nm, aes(sample=resid))+stat_qq()+stat_qq_line(color="red")
 ```
-# Checking Multi-colinearity again
+The assumptions look better but still the qqplot still has the tails that deviate from the line at the extremes. The residual plot seems to have more spread but does have some areas where its clumped. This shows that extreme values, the model might not predict as well.
+
+# Checking Multi-colinearity of new model
 ```{r}
 stars_mc2 <- subset(stars_t, select = -c(Temperature, Relative_Luminosity, Relative_Radius, Absolute_Magnitude, Color,
                                          Spectral_Class,Type, Magnitude))
@@ -172,11 +187,21 @@ cor_mat2
 
 
 ```{r}
+car::vif(model_n)
+```
+
+The VIF lowered a lot but there is still a chance of multi-colinearity due to it being above 5.
+
+```{r}
 #plot of correlation matrix
 ggcorrplot(cor_mat2, lab = TRUE, type = "lower", colors = c("cadetblue4","white","coral4"))
 ```
 
-# Cross validation for testing with new data
+## Cross validation for testing with new data
+
+Now want to test how the model does on new data using cross-validation.
+
+
 ```{r}
 library(caret)
 ```
@@ -195,8 +220,9 @@ summary(model_cv)
 #Calculating RMSE
 model_cv$results$RMSE
 ```
+RMSE is 0.589 which shows on average, how much error will a prediction be off by.
 
-
+# Predictions
 ```{r}
 #Making prediction of first 3 rows
 predict(model_n, newdata = stars_nom[1:3,], interval = "prediction", level = .95)
@@ -213,4 +239,6 @@ exp(predict(model_n, newdata = stars_nom[1:3,]))
 exp(predict(model_n, newdata = stars_nom[1:3,], interval = "confidence", level = .95))
 ```
 
+Made predictions based on the model using luminosity and radius as predictors of temperature. When comparing the predicted values to the observed values, the model was off by a little bit. 
 
+The model is of some use but it is off a some when making predictions of temperature based off these predictors.
