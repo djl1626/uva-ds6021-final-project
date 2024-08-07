@@ -1,0 +1,109 @@
+---
+title: "DS6021 Final Project"
+author: "Daniel Luettgen"
+date: "8/5/2024"
+output: html_document
+---
+
+```{python}
+import pandas as pd
+
+stars = pd.read_csv('Stars.csv')
+
+replace_map = {"Red": "Red_Orange",
+"Blue": "Blue",
+"Blue-white": "Blue-White",
+"Blue White": "Blue-White",
+"yellow-white": "Yellow_White",
+"White": "Yellow_White",
+"Blue white": "Blue-White",
+"white": "Yellow_White",
+"Yellowish White": "Yellow_White",
+"yellowish": "Yellow_White",
+"Whitish": "Yellow_White",
+"Orange": "Red_Orange",
+"White-Yellow": "Yellow_White",
+"Pale yellow orange": "Yellow_White",
+"Yellowish": "Yellow_White",
+"Orange-Red": "Red_Orange",
+"Blue-White": "Blue-White"}
+
+stars.Color = stars.Color.replace(replace_map)
+
+replace_map2 = {,
+   0: 'Red Dwarf'
+   1: 'Brown Dwarf',
+   2: 'White Dwarf',
+   3: 'Main Sequence',
+   4: 'Super Giants',
+   5" 'Hyper Giants'
+}
+
+stars.Type = stars.Type.replace(replace_map2)
+
+stars.to_csv('Stars_clean_r.csv', index = False)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggcorrplot)
+library(MASS)
+library(caret)
+library(car)
+library(broom)
+library(glmnet)
+
+stars <- read.csv("Data/Stars_clean_r.csv")
+```
+
+## Data Exploration
+
+```{r numerical-distribution}
+knitr::kable(summary(stars %>% dplyr::select(Temperature, L, R, A_M)), format='html')
+```
+
+## Multiple Linear Regression
+
+```{r initial-model}
+inimodel <- lm(Temperature~., data=stars[0:5])
+summary(inimodel)
+```
+
+```{r initial-log-model}
+stars2 <- mutate(stars, Temperature = log(Temperature), L = log(L), R = log(R))
+inimodel2 <- lm(Temperature~., data=stars2[0:5])
+summary(inimodel2)
+```
+
+```{r lasso-model}
+X<- model.matrix(Temperature~0+.,data=stars2[0:5])
+y <- stars2[0:5]$Temperature
+rmodel <- glmnet(x=X, y=y, alpha = 1)
+kcvrmodel <- cv.glmnet(x=X, y=y, alpha = 1, nfolds=10)
+kcvrmodel$lambda.1se
+plot(rmodel, label=T,xvar='lambda')+abline(v=log(kcvrmodel$lambda.1se))
+predict(rmodel, type="coefficient", s=kcvrmodel$lambda.1se, newx=X[1:10,])
+```
+
+```{r good-model}
+goodmodel <- lm(Temperature~L+Color, data=stars2)
+summary(goodmodel)
+```
+
+```{r good-model-resid-plot}
+star_pred <- mutate(stars2, predictions=fitted(goodmodel), resid=residuals(goodmodel))
+
+ggplot(star_pred, aes(x=predictions, y=resid)) + geom_point() + geom_hline(yintercept = 0, color="red")
+```
+
+```{r good-model-qq-plot}
+ggplot(star_pred, aes(sample=resid)) + stat_qq() + stat_qq_line(color="red")
+```
+
+```{r jitter-plot}
+ggplot(stars2, aes(x=L, y = Temperature, color=Color))+geom_jitter()+
+  geom_smooth(method="lm", model.extract(stars2), se=FALSE)
+```
+
+## Logistic Regression

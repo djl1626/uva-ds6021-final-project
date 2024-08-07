@@ -13,7 +13,7 @@ library(caret)
 library(car)
 library(broom)
 library(glmnet)
-stars = read.csv("Data/Stars_clean_r.csv")
+stars = read.csv("Data/Stars_cleanest_r.csv")
 ```
 
 ```{r}
@@ -89,7 +89,7 @@ ggplot(star_pred, aes(x=predictions, y=resid)) + geom_point() + geom_hline(yinte
 ```
 
 ```{r}
-ggplot(star_pred, aes(sample=resid, color = Color))+stat_qq()+stat_qq_line(color="red")
+ggplot(star_pred, aes(sample=resid))+stat_qq()+stat_qq_line(color="red")
 ```
 
 ```{r}
