@@ -57,14 +57,52 @@ library(broom)
 library(glmnet)
 library(gridExtra)
 library(nnet)
+library(ggcorrplot)
 
 stars <- read.csv("Data/Stars_cleanest_r.csv")
 ```
 
 ## Data Exploration
 
+### Numeric Variables vs Temperature
+
+```{r}
+#changing column names
+names(stars) <- c("Temperature","Relative_Luminosity", "Relative_Radius", "Absolute_Magnitude","Color",
+                   "Spectral_Class","Type")
+
+#Facet wrap of individual variables
+stars2 <- gather(stars, key="predictor", value="value", Relative_Luminosity, Relative_Radius, Absolute_Magnitude)
+ggplot(stars2, aes(x=value, y=Temperature,color=predictor))+geom_point()+
+  facet_wrap(~predictor,scales = "free_x")+scale_color_manual(values = c("Absolute_Magnitude" = "darkslateblue", "Relative_Luminosity" = "coral3", "Relative_Radius" = "cadetblue4"))+theme(legend.position = "none")
+```
+
+### Transform Luminosity, Temperature, and Radius
+
+```{r}
+#Log Transformations (except magnitude due to negatives)
+stars_t <- mutate(stars, Log_Luminosity = log(Relative_Luminosity), Log_Temperature = log(Temperature), Log_Radius = log(Relative_Radius), Magnitude = Absolute_Magnitude)
+
+stars_t2 <- gather(stars_t, key="predictor", value="value",
+                  Log_Luminosity, Log_Radius, Magnitude)
+#New facet wrap of transformations
+ggplot(stars_t2, aes(x=value, y=Log_Temperature,color=predictor))+geom_point()+
+  facet_wrap(~predictor,scales = "free_x")
+```
+
+### Checking for Multicollinearity
+
+```{r}
+stars_mc <- subset(stars_t, select = -c(Temperature, Relative_Luminosity, Relative_Radius, Absolute_Magnitude, Color,
+                                         Spectral_Class,Type))
+cor_mat <- round(cor(stars_mc),2)
+
+ggcorrplot(cor_mat, lab=TRUE, type="lower", colors = c("cadetblue4","white","coral4"))
+```
+
 ```{r numerical-distribution}
-knitr::kable(summary(stars %>% dplyr::select(Temperature, L, R, A_M)), format='html')
+stars <- read.csv("Data/Stars_cleanest_r.csv")
+summary(stars %>% dplyr::select(Temperature, L, R, A_M))
 ```
 
 The table above shows the distribution of numerical data in our dataset. Temperature, Luminosity, and Radius all have a very wide distribution, signaling that scaling may be necessary when constructing linear models.
@@ -258,6 +296,8 @@ paste('Training Accuracy:', sum((as.integer(train_preds == train_data$Type)) / n
 M_train <- as.matrix(train_data[,11:16])
 colnames(M_train) <- c("Brown Dwarf", "Hyper Giants", "Main Sequence", "Red Dwarf", "Super Giants", "White Dwarf")
 pROC::multiclass.roc(train_preds, M_train)
+
+confusionMatrix(as.factor(train_preds), as.factor(train_data$Type))
 ```
 
 After training each logistic regression model, we evaluate the performance of the combination of models. We predict the star type based on which star type's logistic regression model yielded the largest probability against all others. With the training data, we have ~90% accuracy and ~.94 AUC, indicating an effective model against the training data.
@@ -304,6 +344,8 @@ paste('testing Accuracy:', sum((as.integer(test_preds == test_data$Type)) / nrow
 M_test <- as.matrix(test_data[,11:16])
 colnames(M_test) <- c("Brown Dwarf", "Hyper Giants", "Main Sequence", "Red Dwarf", "Super Giants", "White Dwarf")
 pROC::multiclass.roc(test_preds, M_test)
+
+confusionMatrix(as.factor(test_preds), as.factor(test_data$Type))
 ```
 
 The model performs slightly worse on the testing data-set, but this is generally expected. We have an accuracy of 77% and an AUC of ~.87. The model overall performs well against the test data.
@@ -324,7 +366,7 @@ The plots above show each predictor against the predicted log odds of the train 
 In addition to one-vs-all logistic regression, we also found a second method for predicting a categorical variable with more than 2 features known as multinomial logistic regression. The difference between multinomial logistic regression and one-vs-all logistic regression is that multinomial minimizes the negative log-odds that of each class relative to a reference class rather than all of the other classes.
 
 ```{r}
-stars <- read.csv("/Users/lathangregg/Documents/MSDS/DS6021/Project/uva-ds6021-final-project/Data/Stars_clean_r.csv")
+stars <- read.csv("Data/Stars_clean_r.csv")
 
 # Convert 'Type' column to factor
 stars$Type <- as.factor(stars$Type)
