@@ -43,7 +43,7 @@ library(car)
 library(broom)
 library(glmnet)
 
-stars <- read.csv("Data/Stars_clean_r.csv")
+stars <- read.csv("Data/Stars_cleanest_r.csv")
 ```
 
 ## Data Exploration
@@ -71,13 +71,6 @@ summary(inimodel2)
 
 After transforming the Luminosity, Radius, and Absolute Magnitude values, the Adj. $R^2$ for the model increased by almost .2. All of the colors remained significant. The p-values for the numerical variables are still high, and we have known multicollinearity issues with Absolute Magnitude and Radius. 
 
-```{r find-rmse}
-predictions <- exp(predict(inimodel2, stars2))
-print(paste('RMSE:',sqrt(mean((predictions - stars$Temperature)^2))))
-```
-
-Since we transformed the response variable using the natural log function, we need to un-transform the predictions to get an accurate RMSE.
-
 To perform feature selection, we turn to LASSO regularization.
 
 ```{r lasso-model-plot}
@@ -102,11 +95,6 @@ summary(goodmodel)
 
 Following feature selection using LASSO regression, we created our final linear model using the chosen features. All of the predictors are shown to be significant in the model with p-values < .01. 
 
-```{r}
-predictions <- exp(predict(goodmodel, stars2))
-print(paste('RMSE:',sqrt(mean((predictions - stars$Temperature)^2))))
-```
-
 The Adj. $R^2$ and RMSE are about the same as the model pre-feature selection, but based on the principal of parsimony, we conclude that this model is better.
 
 ```{r jitter-plot}
@@ -119,10 +107,10 @@ ggplot(stars2, aes(x=L, y = Temperature, color=Color))+geom_jitter()+
 ```{r good-model-resid-plot}
 star_pred <- mutate(stars2, predictions=fitted(goodmodel), resid=residuals(goodmodel))
 
-ggplot(star_pred, aes(x=predictions, y=resid, color=Color)) + geom_point() + geom_hline(yintercept = 0, color="red")
+ggplot(star_pred, aes(x=predictions, y=resid)) + geom_point() + geom_hline(yintercept = 0, color="red")
 ```
 
-Generally speaking, the residuals plot is evenly distributed around the $y=0$ line. However, we see distinct grouping in the plot along the $y=0$ line. This comes from inherent grouping in the data based on the color of the star. This calls into question the independence assumption for linear modeling. Color and temperature do not appear to be independent. Some of this may have come from cleaning the data-set as we compressed the number of colors 9 from to 4. This came as a result of many colors being under-represented in the data-set.
+Generally speaking, the residuals plot is evenly distributed around the $y=0$ line. There is some vertical patterning, but no distinct fanning in the residuals. The vertical patterning is of some concern, but this mostly corresponds to the colors of stars in the data-set.
 
 ```{r good-model-qq-plot}
 ggplot(star_pred, aes(sample=resid)) + stat_qq() + stat_qq_line(color="red")
