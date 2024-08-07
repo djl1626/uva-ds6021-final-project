@@ -1,0 +1,204 @@
+---
+title: "ProjectScripts"
+author: "Zach Stautzenbach"
+date: "2024-08-05"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+stars <- read.csv("C:\\Users\\saint\\Downloads\\Stars_clean_r.csv")
+```
+
+```{r}
+#Removing index
+stars = stars[,-1]
+```
+
+```{r}
+#changing column names
+names(stars) <- c("Temperature","Relative_Luminosity", "Relative_Radius", "Absolute_Magnitude","Color",
+                   "Spectral_Class","Type")
+```
+
+
+```{r}
+#Facet wrap of individual variables
+stars2 <- gather(stars, key="predictor", value="value",
+                 Relative_Luminosity, Relative_Radius, Absolute_Magnitude)
+ggplot(stars2, aes(x=value, y=Temperature,color=predictor))+geom_point()+
+  facet_wrap(~predictor,scales = "free_x")+scale_color_manual(values = c("Absolute_Magnitude" = "darkslateblue", "Relative_Luminosity" = "coral3", "Relative_Radius" = "cadetblue4"))+theme(legend.position = "none")
+```
+
+
+
+```{r}
+#Building model
+model1 <- lm(Temperature~Relative_Luminosity+Relative_Radius+Absolute_Magnitude, data = stars)
+summary(model1)
+```
+Checking assumptions:
+1. Residual plot
+```{r}
+stars_predict <- mutate(stars, predictions=fitted(model1),
+                        resid=residuals(model1))
+```
+
+```{r}
+ggplot(stars_predict, aes(x=predictions, y=resid))+geom_point()+geom_hline(yintercept=0, color = "red")
+```
+2. QQplot (4th assumption)
+```{r}
+ggplot(stars_predict, aes(sample=resid))+stat_qq()+stat_qq_line(color="red")
+```
+
+
+```{r}
+#Log Transformations (except magnitude due to negatives)
+stars_t <- mutate(stars, Log_Luminosity = log(Relative_Luminosity), Log_Temperature = log(Temperature), Log_Radius = log(Relative_Radius), Magnitude = Absolute_Magnitude)
+```
+
+
+```{r}
+stars_t2 <- gather(stars_t, key="predictor", value="value",
+                  Log_Luminosity, Log_Radius, Magnitude)
+```
+
+
+```{r}
+#New facet wrap of transformations
+ggplot(stars_t2, aes(x=value, y=Log_Temperature,color=predictor))+geom_point()+
+  facet_wrap(~predictor,scales = "free_x")
+```
+
+
+```{r}
+model_t <- lm(Log_Temperature~Log_Luminosity+Log_Radius+Magnitude, data = stars_t)
+summary(model_t)
+```
+
+Assumptions transformation model:
+```{r}
+predict_t <- mutate(stars_t, predictions = fitted(model_t), resid=residuals(model_t))
+```
+
+
+```{r}
+#Residual plot
+ggplot(predict_t, aes(x=predictions, y=resid))+geom_point()+geom_hline(yintercept=0, color = "red")
+```
+
+```{r}
+#qqplot
+ggplot(predict_t, aes(sample=resid))+stat_qq()+stat_qq_line(color="red")
+```
+
+# checking for MC:
+```{r}
+stars_mc <- subset(stars_t, select = -c(Temperature, Relative_Luminosity, Relative_Radius, Absolute_Magnitude, Color,
+                                         Spectral_Class,Type))
+```
+
+```{r}
+cor_mat <- round(cor(stars_mc),2)
+```
+
+```{r}
+library(ggcorrplot)
+```
+
+```{r}
+ggcorrplot(cor_mat, lab=TRUE, type="lower", colors = c("cadetblue4","white","coral4"))
+```
+
+```{r}
+#calcing VIFs
+library(car)
+vif(model_t)
+```
+
+# Taking out magnitude
+
+```{r}
+stars_nom <- mutate(stars, Log_Luminosity = log(Relative_Luminosity), Log_Temperature = log(Temperature), Log_Radius = log(Relative_Radius))
+```
+
+
+```{r}
+stars_tn <- gather(stars_nom, key="predictor", value="value",
+                  Log_Luminosity,Log_Radius)
+```
+
+```{r}
+#Graphing predictors with response
+ggplot(stars_tn, aes(x=value, y=Log_Temperature,color=predictor))+geom_point()+
+  facet_wrap(~predictor,scales = "free_x") + scale_color_manual(values = c("Log_Luminosity" = "coral3", "Log_Radius" = "cadetblue4")) + theme(legend.position = "none")
+```
+
+
+```{r}
+#New model with radius and luminosity predicting temperature (log)
+model_n <- lm(Log_Temperature~Log_Radius+Log_Luminosity, data = stars_nom)
+summary(model_n)
+```
+
+
+```{r}
+predict_nm <- mutate(stars_nom, predictions = fitted(model_n),
+                     resid=residuals(model_n))
+```
+
+```{r}
+#Residual plot of new model
+ggplot(predict_nm, aes(x=predictions, y = resid))+geom_point()+geom_hline(yintercept=0,color="red")
+```
+
+```{r}
+#qqplot of new model
+ggplot(predict_nm, aes(sample=resid))+stat_qq()+stat_qq_line(color="red")
+```
+# Checking Multi-colinearity again
+```{r}
+stars_mc2 <- subset(stars_t, select = -c(Temperature, Relative_Luminosity, Relative_Radius, Absolute_Magnitude, Color,
+                                         Spectral_Class,Type, Magnitude))
+```
+
+```{r}
+#creating correlation matrix
+cor_mat2 <- round(cor(stars_mc2),2)
+```
+
+```{r}
+cor_mat2
+```
+
+
+```{r}
+#plot of correlation matrix
+ggcorrplot(cor_mat2, lab = TRUE, type = "lower", colors = c("cadetblue4","white","coral4"))
+```
+
+# Cross validation for testing with new data
+```{r}
+library(caret)
+```
+
+```{r}
+control <- trainControl(method = "cv", number = 10)
+```
+
+```{r}
+model_cv <- train(Log_Temperature~Log_Radius+Log_Luminosity, method = "lm",
+                  trControl = control, data = stars_nom)
+summary(model_cv)
+```
+
+```{r}
+#Calculating RMSE
+model_cv$results$RMSE
+```
+
