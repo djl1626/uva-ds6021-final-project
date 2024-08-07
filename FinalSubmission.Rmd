@@ -106,4 +106,11 @@ ggplot(stars2, aes(x=L, y = Temperature, color=Color))+geom_jitter()+
   geom_smooth(method="lm", model.extract(stars2), se=FALSE)
 ```
 
+```{r}
+new_dat <- stars2[c(90,150,175,220),-1]
+exp(predict(goodmodel, newdata = new_dat, interval = "prediction", level = .95))
+exp(predict(goodmodel, newdata = new_dat, interval = "confidence", level = .95))
+exp(stars2[c(90,150,175,220),1:2])
+```
+
 ## Logistic Regression
