@@ -93,5 +93,8 @@ ggplot(star_pred, aes(sample=resid))+stat_qq()+stat_qq_line(color="red")
 ```
 
 ```{r}
-
+new_dat <- stars2[c(90,150,175,220),-1]
+exp(predict(goodmodel, newdata = new_dat, interval = "prediction", level = .95))
+exp(predict(goodmodel, newdata = new_dat, interval = "confidence", level = .95))
+exp(stars2[c(90,150,175,220),1:2])
 ```
