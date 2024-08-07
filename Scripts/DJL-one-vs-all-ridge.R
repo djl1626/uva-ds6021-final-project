@@ -87,8 +87,6 @@ train_rowmax <- apply(train_probs, 1, max)
 train_log_odds <- rowmax / log(1-train_rowmax)
 train_rowmax_index <- apply(train_probs, 1, which.max)
 
-# ggplot(mapping=aes(x=train_data$log_Temp, y=log_odds)) + geom_point()
-
 train_preds <- colnames(train_probs)[rowmax_index]
 
 paste('Training Accuracy:', sum((as.integer(train_preds == train_data$Type)) / nrow(train_data)))

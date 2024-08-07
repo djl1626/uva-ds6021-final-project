@@ -5,7 +5,9 @@ date: "8/5/2024"
 output: html_document
 ---
 
-```{python}
+## Cleaning the Data
+
+```{python eval=FALSE, include=FALSE, python.reticulate=FALSE}
 import pandas as pd
 
 stars = pd.read_csv('Stars.csv')
@@ -53,6 +55,7 @@ library(caret)
 library(car)
 library(broom)
 library(glmnet)
+library(gridExtra)
 
 stars <- read.csv("Data/Stars_cleanest_r.csv")
 ```
@@ -141,3 +144,176 @@ exp(stars2[c(90,150,175,220),1:2])
 ```
 
 ## Logistic Regression
+
+### One Vs. All
+
+One Vs. All logistic regression is a method to use logistic regression to predict multiclass categorical variables. We will be attempting to predict star type from the natural log of Temperature, Luminosity, and Radius. For each star type, we train a logistic regression model that predicts either that star type, or not that star type. For example, the first model will predict whether a star is a Brown Dwarf or not a Brown Dwarf. At the end, the star type with the largest predicted probability will be labeled as the prediction from the model.
+
+```{r read-dataset}
+# set a seed
+set.seed(6021)
+
+# Read in the data-set. Drop the first column
+stars <- read.csv('Data/Stars_cleanest_r.csv')
+stars <- stars %>% dplyr::select(Temperature, L, R, A_M, Color, Spectral_Class, Type)
+stars <- stars %>% mutate(log_L = log(L), log_R=log(R), log_Temp=log(Temperature))
+dummies <- dummyVars('~Type', data=stars)
+stars_dummies <- data.frame(stars, predict(dummies, newdata=stars))
+```
+
+```{r train-test-split}
+# Split the data into train and test
+train_sample <- sample(1:nrow(stars_dummies), .8*nrow(stars_dummies), replace=FALSE)
+train_data <- stars_dummies[train_sample,]
+test_data <- stars_dummies[-train_sample,]
+```
+
+We broke the data-set into a train and test data-set to evaluate model performance after training the model. A ridge regularization penalty was added to the model to introduce bias into the predictions. This is because some of the models without the penalty displayed perfect separation in the data, which yielded excellent accuracy, but poor p-values for the predictors.
+
+```{r}
+# Brown Dwarf Model
+bd_X <- model.matrix(TypeBrown.Dwarf~0+log_L+log_R+log_Temp, data=train_data)
+bd_y <- train_data$TypeBrown.Dwarf
+
+bd_ridge_model <- glmnet(x=bd_X, y=bd_y, data=stars, alpha=0, family='binomial')
+
+bd_cv_model <- cv.glmnet(x=bd_X, y=bd_y, data=stars, alpha=0, family='binomial', nfolds=10)
+
+bd_train_probs <- predict(bd_ridge_model, newx=bd_X, s=bd_cv_model$lambda.min, type='response')
+```
+
+```{r}
+# Red Dwarf Model
+rd_X <- model.matrix(TypeRed.Dwarf~0+log_L+log_R+log_Temp, data=train_data)
+rd_y <- train_data$TypeRed.Dwarf
+
+rd_ridge_model <- glmnet(x=rd_X, y=rd_y, data=stars, alpha=0, family='binomial')
+
+rd_cv_model <- cv.glmnet(x=rd_X, y=rd_y, data=stars, alpha=0, family='binomial', nfolds=10)
+
+rd_train_probs <- predict(rd_ridge_model, newx=rd_X, s=rd_cv_model$lambda.min, type='response')
+```
+
+```{r}
+# White Dwarf Model
+wd_X <- model.matrix(TypeWhite.Dwarf~0+log_L+log_R+log_Temp, data=train_data)
+wd_y <- train_data$TypeWhite.Dwarf
+
+wd_ridge_model <- glmnet(x=wd_X, y=wd_y, data=stars, alpha=0, family='binomial')
+
+wd_cv_model <- cv.glmnet(x=wd_X, y=wd_y, data=stars, alpha=0, family='binomial', nfolds=10)
+
+wd_train_probs <- predict(wd_ridge_model, newx=wd_X, s=wd_cv_model$lambda.min, type='response')
+```
+
+```{r}
+# Main Sequence Model
+ms_X <- model.matrix(TypeMain.Sequence~0+log_L+log_R+log_Temp, data=train_data)
+ms_y <- train_data$TypeMain.Sequence
+
+ms_ridge_model <- glmnet(x=ms_X, y=ms_y, data=stars, alpha=0, family='binomial')
+
+ms_cv_model <- cv.glmnet(x=ms_X, y=ms_y, data=stars, alpha=0, family='binomial', nfolds=10)
+
+ms_train_probs <- predict(ms_ridge_model, newx=ms_X, s=ms_cv_model$lambda.min, type='response')
+```
+
+```{r}
+# Hyper Giants Model
+hg_X <- model.matrix(TypeHyper.Giants~0+log_L+log_R+log_Temp, data=train_data)
+hg_y <- train_data$TypeHyper.Giants
+
+hg_ridge_model <- glmnet(x=hg_X, y=hg_y, data=stars, alpha=0, family='binomial')
+
+hg_cv_model <- cv.glmnet(x=hg_X, y=hg_y, data=stars, alpha=0, family='binomial', nfolds=10)
+
+hg_train_probs <- predict(hg_ridge_model, newx=hg_X, s=hg_cv_model$lambda.min, type='response')
+```
+
+```{r}
+# Super Giants Model
+sg_X <- model.matrix(TypeSuper.Giants~0+log_L+log_R+log_Temp, data=train_data)
+sg_y <- train_data$TypeSuper.Giants
+
+sg_ridge_model <- glmnet(x=sg_X, y=sg_y, data=stars, alpha=0, family='binomial')
+
+sg_cv_model <- cv.glmnet(x=sg_X, y=sg_y, data=stars, alpha=0, family='binomial', nfolds=10)
+
+sg_train_probs <- predict(sg_ridge_model, newx=sg_X, s=sg_cv_model$lambda.min, type='response')
+```
+
+```{r evaluate-train}
+train_probs <- data.frame(bd_train_probs, rd_train_probs, wd_train_probs, ms_train_probs, hg_train_probs, sg_train_probs)
+colnames(train_probs) <- c('Brown Dwarf', 'Red Dwarf', 'White Dwarf', 'Main Sequence', 'Hyper Giants', 'Super Giants')
+
+train_rowmax <- apply(train_probs, 1, max)
+train_log_odds <- train_rowmax / log(1-train_rowmax)
+train_rowmax_index <- apply(train_probs, 1, which.max)
+
+train_preds <- colnames(train_probs)[train_rowmax_index]
+
+paste('Training Accuracy:', sum((as.integer(train_preds == train_data$Type)) / nrow(train_data)))
+
+M_train <- as.matrix(train_data[,11:16])
+colnames(M_train) <- c("Brown Dwarf", "Hyper Giants", "Main Sequence", "Red Dwarf", "Super Giants", "White Dwarf")
+pROC::multiclass.roc(train_preds, M_train)
+```
+
+After training each logistic regression model, we evaluate the performance of the combination of models. We predict the star type based on which star type's logistic regression model yielded the largest probability against all others. With the training data, we have ~90% accuracy and ~.94 AUC, indicating an effective model against the training data.
+
+We then turn to testing the trained model against the testing data-set.
+
+```{r test-model}
+# Test the model
+bd_test_X <- model.matrix(TypeBrown.Dwarf~0+log_L+log_R+log_Temp, data=test_data)
+bd_test_y <- test_data$TypeBrown.Dwarf
+bd_test_probs <- predict(bd_ridge_model, newx=bd_test_X, s=bd_cv_model$lambda.min, type='response')
+
+rd_test_X <- model.matrix(TypeRed.Dwarf~0+log_L+log_R+log_Temp, data=test_data)
+rd_test_y <- test_data$TypeRed.Dwarf
+rd_test_probs <- predict(rd_ridge_model, newx=rd_test_X, s=rd_cv_model$lambda.min, type='response')
+
+wd_test_X <- model.matrix(TypeWhite.Dwarf~0+log_L+log_R+log_Temp, data=test_data)
+wd_test_y <- test_data$TypeWhite.Dwarf
+wd_test_probs <- predict(wd_ridge_model, newx=wd_test_X, s=wd_cv_model$lambda.min, type='response')
+
+ms_test_X <- model.matrix(TypeMain.Sequence~0+log_L+log_R+log_Temp, data=test_data)
+ms_test_y <- test_data$TypeMain.Sequence
+ms_test_probs <- predict(ms_ridge_model, newx=ms_test_X, s=ms_cv_model$lambda.min, type='response')
+
+hg_test_X <- model.matrix(TypeHyper.Giants~0+log_L+log_R+log_Temp, data=test_data)
+hg_test_y <- test_data$TypeHyper.Giants
+hg_test_probs <- predict(hg_ridge_model, newx=hg_test_X, s=hg_cv_model$lambda.min, type='response')
+
+sg_test_X <- model.matrix(TypeSuper.Giants~0+log_L+log_R+log_Temp, data=test_data)
+sg_test_y <- test_data$TypeSuper.Giants
+sg_test_probs <- predict(sg_ridge_model, newx=sg_test_X, s=sg_cv_model$lambda.min, type='response')
+
+test_probs <- data.frame(bd_test_probs, rd_test_probs, wd_test_probs, ms_test_probs, hg_test_probs, sg_test_probs)
+colnames(test_probs) <- c('Brown Dwarf', 'Red Dwarf', 'White Dwarf', 'Main Sequence', 'Hyper Giants', 'Super Giants')
+
+test_rowmax <- apply(test_probs, 1, max)
+test_log_odds <- test_rowmax / log(1-test_rowmax)
+test_rowmax_index <- apply(test_probs, 1, which.max)
+
+test_preds <- colnames(test_probs)[test_rowmax_index]
+
+paste('testing Accuracy:', sum((as.integer(test_preds == test_data$Type)) / nrow(test_data)))
+
+M_test <- as.matrix(test_data[,11:16])
+colnames(M_test) <- c("Brown Dwarf", "Hyper Giants", "Main Sequence", "Red Dwarf", "Super Giants", "White Dwarf")
+pROC::multiclass.roc(test_preds, M_test)
+```
+
+The model performs slightly worse on the testing data-set, but this is generally expected. We have an accuracy of 77% and an AUC of ~.87. The model overall performs well against the test data.
+
+Next, we turn to evaluating the linearity assumption for logistic regression.
+
+```{r assumptions-plot}
+log_L_plot <- ggplot(mapping=aes(x=train_data$log_L, y=train_log_odds)) + geom_point() + xlab('log(L)')
+log_R_plot <- ggplot(mapping=aes(x=train_data$log_R, y=train_log_odds)) + geom_point() + xlab('log(R)')
+log_Temp_plot <- ggplot(mapping=aes(x=train_data$log_Temp, y=train_log_odds)) + geom_point() + xlab('log(Temperature)')
+grid.arrange(log_L_plot, log_R_plot, log_Temp_plot)
+```
+
+The plots above show each predictor against the predicted log odds of the train data-set. None of the plots show a distinct linear relationship as they all show some parabolic curving. This brings the linearity assumption into question for this One Vs. All logistic model. Although the model performs well, it may not perform well on future data. In order to dive deeper into validating the linearity assumption, or improve model performance, a larger data-set would be useful. 
