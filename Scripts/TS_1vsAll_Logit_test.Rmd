@@ -1,0 +1,116 @@
+---
+title: "MultipleLogisticReg"
+author: "TS"
+date: "2024-08-07"
+output: html_document
+---
+```{r}
+library(car)
+```
+
+```{r}
+LRdata <- relative_data %>%
+  select(-c(Color, Spectral_Class))
+```
+
+
+```{r}
+unique(absolute_data$Type)
+```
+
+# Data Set
+```{r}
+LRdata <- LRdata %>%
+  mutate(TypeRedDwarf = ifelse(Type == 'Red Dwarf', 1, 0)) %>%
+  mutate(TypeBrownDwarf = ifelse(Type == 'Brown Dwarf', 1, 0)) %>%
+  mutate(TypeWhiteDwarf = ifelse(Type == 'White Dwarf', 1, 0)) %>%
+  mutate(TypeMainSequence = ifelse(Type == 'Main Sequence', 1, 0)) %>%
+  mutate(TypeSuperGiants = ifelse(Type == 'Super Giants', 1, 0)) %>%
+  mutate(TypeHyperGiants = ifelse(Type == 'Hyper Giants', 1, 0))
+```
+
+```{r}
+LRdata %>%
+  mutate(TypeRedDwarf = as.factor(TypeRedDwarf))
+```
+
+```{r}
+trainIndexLR <- createDataPartition(LRdata$Type, p = 0.8, list = FALSE)
+trainDataLR <- LRdata[trainIndex,]
+testDataLR <- LRdata[-trainIndex,]
+```
+
+# Red Dwarf
+```{r}
+modelRedDwarf <- glm(TypeRedDwarf ~ Temperature + L + R + A_M, data = trainDataLR, family = 'binomial')
+summary(modelRedDwarf)
+```
+```{r}
+vif(modelRedDwarf)
+```
+
+
+```{r}
+predictedRed <- predict(modelRedDwarf, newdata = testDataLR, type = 'response')
+predictedRed
+```
+
+```{r}
+ctrl <- trainControl(method = "cv", number=10, summaryFunction = twoClassSummary, classProbs = TRUE, savePredictions = TRUE)
+ctrlRed <- train(TypeRedDwarf~Temperature + L + R + A_M, method="glm", family='binomial', trControl = ctrl, metric="ROC")
+```
+
+
+# Brown Dwarf
+```{r}
+modelBrownDwarf <- glm(TypeBrownDwarf ~ Temperature + L + R + A_M, data = trainDataLR, family = 'binomial')
+summary(modelBrownDwarf)
+```
+```{r}
+predictedBrown <- predict(modelBrownDwarf, newdata = testDataLR, type = 'response')
+predictedBrown
+```
+
+
+# White Dwarf
+```{r}
+modelWhiteDwarf <- glm(TypeWhiteDwarf ~ Temperature + L + R + A_M, data = trainDataLR, family = 'binomial')
+summary(modelWhiteDwarf)
+```
+```{r}
+predictedWhite <- predict(modelWhiteDwarf, newdata = testDataLR, type = 'response')
+predictedWhite
+```
+
+
+# Main Sequence
+```{r}
+modelMainSequence <- glm(TypeMainSequence ~ Temperature + L + R + A_M, data = trainDataLR, family = 'binomial')
+summary(modelMainSequence)
+```
+```{r}
+predictedMain <- predict(modelMainSequence, newdata = testDataLR, type = 'response')
+predictedMain
+```
+
+
+# Super Giants
+```{r}
+modelSuperGiants <- glm(TypeSuperGiants ~ Temperature + L + R + A_M, data = trainDataLR, family = 'binomial')
+summary(modelSuperGiants)
+```
+```{r}
+predictedSuper <- predict(modelSuperGiants, newdata = testDataLR, type = 'response')
+predictedSuper
+```
+
+# Hyper Giants
+```{r}
+modelHyperGiants <- glm(TypeHyperGiants ~ Temperature + L + R + A_M, data = trainDataLR, family = 'binomial')
+summary(modelHyperGiants)
+```
+```{r}
+predictedHyper <- predict(modelHyperGiants, newdata = testDataLR, type = 'response')
+predictedHyper
+```
+
