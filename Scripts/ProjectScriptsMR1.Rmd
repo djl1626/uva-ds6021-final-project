@@ -196,3 +196,21 @@ summary(model_cv)
 model_cv$results$RMSE
 ```
 
+
+```{r}
+#Making prediction of first 3 rows
+predict(model_n, newdata = stars_nom[1:3,], interval = "prediction", level = .95)
+```
+
+```{r}
+#scaling predictions back 
+exp(predict(model_n, newdata = stars_nom[1:3,]))
+
+```
+
+```{r}
+#Confidence interval
+exp(predict(model_n, newdata = stars_nom[1:3,], interval = "confidence", level = .95))
+```
+
+
