@@ -54,7 +54,7 @@ library(car)
 library(broom)
 library(glmnet)
 
-stars <- read.csv("Data/Stars_clean_r.csv")
+stars <- read.csv("Data/Stars_cleanest_r.csv")
 ```
 
 ## Data Exploration
@@ -63,12 +63,16 @@ stars <- read.csv("Data/Stars_clean_r.csv")
 knitr::kable(summary(stars %>% dplyr::select(Temperature, L, R, A_M)), format='html')
 ```
 
-## Multiple Linear Regression
+The table above shows the distribution of numerical data in our dataset. Temperature, Luminosity, and Radius all have a very wide distribution, signaling that scaling may be necessary when constructing linear models.
+
+## Multiple Linear Regression - LASSO Approach
 
 ```{r initial-model}
 inimodel <- lm(Temperature~., data=stars[0:5])
 summary(inimodel)
 ```
+
+This naive initial model predicts Temperature from Luminosity, Radius, Absolute Magnitude, and Color. While the overall model is significant (p-value ~0), all of the numerical predictors are not significant. Referring back to the exploratory analysis section, this may be because of the large spread in data for Luminosity and Radius.
 
 ```{r initial-log-model}
 stars2 <- mutate(stars, Temperature = log(Temperature), L = log(L), R = log(R))
@@ -76,20 +80,40 @@ inimodel2 <- lm(Temperature~., data=stars2[0:5])
 summary(inimodel2)
 ```
 
-```{r lasso-model}
+After transforming the Luminosity, Radius, and Absolute Magnitude values, the Adj. $R^2$ for the model increased by almost .2. All of the colors remained significant. The p-values for the numerical variables are still high, and we have known multicollinearity issues with Absolute Magnitude and Radius. 
+
+To perform feature selection, we turn to LASSO regularization.
+
+```{r lasso-model-plot}
 X<- model.matrix(Temperature~0+.,data=stars2[0:5])
 y <- stars2[0:5]$Temperature
 rmodel <- glmnet(x=X, y=y, alpha = 1)
 kcvrmodel <- cv.glmnet(x=X, y=y, alpha = 1, nfolds=10)
-kcvrmodel$lambda.1se
-plot(rmodel, label=T,xvar='lambda')+abline(v=log(kcvrmodel$lambda.1se))
+# kcvrmodel$lambda.1se
+plot(rmodel, label=T,xvar='lambda') + abline(v=log(kcvrmodel$lambda.1se))
+```
+
+```{r lasso-coefs}
 predict(rmodel, type="coefficient", s=kcvrmodel$lambda.1se, newx=X[1:10,])
 ```
+
+Using a lambda value 1 standard deviation away from the lambda that minimizes RMSE, we see the LASSO regression has eliminated the Radius and Absolute Magnitude predictors. Seeing at least one of these removed was expected because these two predictors were highly correlated after transforming Radius. Although the LASSO regression eliminated the Yellow-White color, we opted to leave this categorical predictor in the model since the other 3 colors were found to be significant.
 
 ```{r good-model}
 goodmodel <- lm(Temperature~L+Color, data=stars2)
 summary(goodmodel)
 ```
+
+Following feature selection using LASSO regression, we created our final linear model using the chosen features. All of the predictors are shown to be significant in the model with p-values < .01. 
+
+The Adj. $R^2$ and RMSE are about the same as the model pre-feature selection, but based on the principal of parsimony, we conclude that this model is better.
+
+```{r jitter-plot}
+ggplot(stars2, aes(x=L, y = Temperature, color=Color))+geom_jitter()+
+  geom_smooth(method="lm", model.extract(stars2), se=FALSE)
+```
+
+#### Checking Assumptions
 
 ```{r good-model-resid-plot}
 star_pred <- mutate(stars2, predictions=fitted(goodmodel), resid=residuals(goodmodel))
@@ -97,14 +121,17 @@ star_pred <- mutate(stars2, predictions=fitted(goodmodel), resid=residuals(goodm
 ggplot(star_pred, aes(x=predictions, y=resid)) + geom_point() + geom_hline(yintercept = 0, color="red")
 ```
 
+Generally speaking, the residuals plot is evenly distributed around the $y=0$ line. There is some vertical patterning, but no distinct fanning in the residuals. The vertical patterning is of some concern, but this mostly corresponds to the colors of stars in the data-set.
+
 ```{r good-model-qq-plot}
 ggplot(star_pred, aes(sample=resid)) + stat_qq() + stat_qq_line(color="red")
 ```
 
-```{r jitter-plot}
-ggplot(stars2, aes(x=L, y = Temperature, color=Color))+geom_jitter()+
-  geom_smooth(method="lm", model.extract(stars2), se=FALSE)
-```
+The QQ plot displays excellent results within the $[-1, 1]$ quantile range. However, after that we see the points diverge heavily from the $y=x$ line. This is an indication that the population may not be normally distributed in the extreme ranges of the data. This divergence calls the 4th assumption of a normal population into question.
+
+#### Conculusion
+
+Although we have a model that has relatively strong performance metrics, we struggle to validate all of the assumptions necessary for linear modeling. In the end, a linear model is likely not the best choice for our data-set. 
 
 ```{r}
 new_dat <- stars2[c(90,150,175,220),-1]
