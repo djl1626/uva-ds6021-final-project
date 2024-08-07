@@ -1,0 +1,90 @@
+---
+title: "Project_Work"
+author: "TS"
+date: "2024-08-05"
+output: html_document
+---
+```{r}
+library(tidyverse)
+library(caret)
+library(glmnet)
+library(nnet)
+library(pls)
+```
+
+
+
+#Logistic Regression - Type
+```{r}
+stars3 <- absolute_data
+stars3 <- stars3 %>%
+  select(-Spectral_Class) %>%
+  mutate(Type = as.factor(Type),
+         Color = as.factor(Color))
+
+stars_log <- stars3 %>% 
+  mutate(L = log(L), R=log(R), Temperature=log(Temperature))
+```
+
+```{r}
+set.seed(123)
+trainIndex <- createDataPartition(stars_log$Type, p = 0.8, list = FALSE)
+trainData <- stars_log[trainIndex,]
+testData <- stars_log[-trainIndex,]
+```
+
+
+```{r}
+modelType <- multinom(Type ~ ., data = trainData)
+```
+
+```{r}
+summary(modelType)
+```
+
+
+```{r}
+predicted_classType <- predict(modelType, newdata = testData)
+```
+
+
+```{r}
+conf_matrixType <- confusionMatrix(predicted_classType, testData$Type)
+print(conf_matrixType)
+```
+
+# Logistic Regression - Color
+```{r}
+stars4 <- absolute_data
+stars4 <- stars4 %>%
+  select(-c(Spectral_Class, Type)) %>%
+  mutate(Color = as.factor(Color))
+
+stars_log2 <- stars4 %>% 
+  mutate(L = log(L), R=log(R), Temperature=log(Temperature))
+```
+
+```{r}
+set.seed(234)
+trainIndex <- createDataPartition(stars_log2$Color, p = 0.8, list = FALSE)
+trainData <- stars_log2[trainIndex,]
+testData <- stars_log2[-trainIndex,]
+```
+
+```{r}
+modelColor <- multinom(Color ~ ., data = trainData)
+```
+
+```{r}
+summary(modelColor)
+```
+
+```{r}
+predicted_classColor <- predict(modelColor, newdata = testData)
+```
+
+```{r}
+conf_matrixColor <- confusionMatrix(predicted_classColor, testData$Color)
+print(conf_matrixColor)
+```
+
