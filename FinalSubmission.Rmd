@@ -56,6 +56,7 @@ library(car)
 library(broom)
 library(glmnet)
 library(gridExtra)
+library(nnet)
 
 stars <- read.csv("Data/Stars_cleanest_r.csv")
 ```
@@ -317,3 +318,57 @@ grid.arrange(log_L_plot, log_R_plot, log_Temp_plot)
 ```
 
 The plots above show each predictor against the predicted log odds of the train data-set. None of the plots show a distinct linear relationship as they all show some parabolic curving. This brings the linearity assumption into question for this One Vs. All logistic model. Although the model performs well, it may not perform well on future data. In order to dive deeper into validating the linearity assumption, or improve model performance, a larger data-set would be useful. 
+
+### Multinomial Regression
+
+In addition to one-vs-all logistic regression, we also found a second method for predicting a categorical variable with more than 2 features known as multinomial logistic regression. The difference between multinomial logistic regression and one-vs-all logistic regression is that multinomial minimizes the negative log-odds that of each class relative to a reference class rather than all of the other classes.
+
+```{r}
+stars <- read.csv("/Users/lathangregg/Documents/MSDS/DS6021/Project/uva-ds6021-final-project/Data/Stars_clean_r.csv")
+
+# Convert 'Type' column to factor
+stars$Type <- as.factor(stars$Type)
+
+# Remove rows with missing values
+stars <- na.omit(stars)
+
+# Remove categorical columns except 'Type'
+stars_numeric <- stars[, sapply(stars, is.numeric)]
+stars_numeric$Type <- stars$Type
+
+# Create a training and testing set
+set.seed(1)
+trainIndex <- createDataPartition(stars_numeric$Type, p = 0.8, list = FALSE)
+trainData <- stars_numeric[trainIndex, ]
+testData <- stars_numeric[-trainIndex, ]
+
+# Separate predictors and response
+x_train <- trainData[, -which(names(trainData) == "Type")]
+y_train <- trainData$Type
+x_test <- testData[, -which(names(testData) == "Type")]
+y_test <- testData$Type
+
+# Train the multinomial logistic regression model
+mlr_model <- multinom(Type ~ ., data = trainData, model = T)
+
+summary(mlr_model)
+
+```
+
+The above code cleans the data, creates an 80/20 train/test split and trains the model with the training data. The summary of the model is generated using the summary() function. The summary includes the final coefficients for each model. The coefficients show the log-odds of each class compared to the reference class. To make predictions on test data, the class with the greatest odds for the test data is returned as the prediction. If all of the odds are less than one, the reference class is predicted.
+
+Next, we test our model on our testing data.
+
+```{r}
+# Predict on the test set
+mlr_pred <- predict(mlr_model, newdata = testData)
+
+# Evaluate the model
+conf_matrix <- confusionMatrix(mlr_pred, y_test)
+accuracy <- conf_matrix$overall['Accuracy']
+cat("Accuracy of Multinomial Logistic Regression: ", accuracy, "\n")
+print(conf_matrix)
+```
+ 
+The model is able to accurately identify the correct class of the test data 98% of the time. While these predictions are very accurate, it should be noted that the linearity assumption for multinomial logistic regression is not met.
+
